@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyGoing - Creative Hub</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&family=Orbitron:wght@600;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Marked for Markdown Parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="creative.css">
+</head>
+<body>
+    <!-- Background Effects -->
+    <div class="glow glow-1"></div>
+    <div class="glow glow-2" style="background: #ec4899; bottom: 0; right: 0;"></div>
+    <div class="grid-overlay"></div>
+
+    <div class="container container-wide">
+        <!-- Header -->
+        <header class="hub-header compact-header">
+            <a href="index.html" class="back-link"><i class="ph ph-arrow-left"></i> Hub</a>
+            <div class="logo">
+                <h1>CREATIVE HUB</h1>
+            </div>
+            <div class="app-badge"><i class="ph-fill ph-sparkle"></i> <span>AI</span> STUDIO</div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="workspace">
+            <!-- Left: Configuration Form -->
+            <aside class="config-panel panel-glass">
+                <div class="panel-header">
+                    <h3><i class="ph-fill ph-faders"></i> Campaign Settings</h3>
+                    <button id="settings-btn" class="icon-btn" title="API Settings"><i class="ph ph-gear"></i></button>
+                </div>
+
+                <form id="creative-form" class="styled-form">
+                    <!-- Mode Toggle -->
+                    <div class="mode-toggle">
+                        <button type="button" class="toggle-btn active" data-mode="text"><i class="ph ph-text-aa"></i> Text/Script</button>
+                        <button type="button" class="toggle-btn" data-mode="image"><i class="ph ph-image"></i> Image Concept</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="gameName">Game Name</label>
+                        <input type="text" id="gameName" placeholder="e.g. Merge Dragons, Epic RPG" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="gameGenre">Game Genre / Theme</label>
+                        <input type="text" id="gameGenre" placeholder="e.g. Match-3 Puzzle, Strategy" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="targetAudience">Target Audience</label>
+                        <input type="text" id="targetAudience" placeholder="e.g. Casual gamers, 18-35 female" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="creativeFormat">Creative Format</label>
+                        <select id="creativeFormat" required>
+                            <option value="Video Script (TikTok/Reels style)">Video Script (Short-form)</option>
+                            <option value="Playable Ad Concept">Playable Ad Concept</option>
+                            <option value="Static Banner Idea">Static Banner Idea</option>
+                            <option value="ASO App Store Screenshots">App Store Screenshots Outline</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="customPrompt">Additional Context (Optional)</label>
+                        <textarea id="customPrompt" rows="3" placeholder="Specific mechanics to highlight, tone of voice, etc."></textarea>
+                    </div>
+
+                    <!-- Image Specific Fields (Hidden by default) -->
+                    <div id="image-fields" style="display: none;">
+                        <div class="form-group">
+                            <label for="artStyle">Art Style</label>
+                            <select id="artStyle">
+                                <option value="High-quality 3D render, vibrant colors, unreal engine 5 style">3D Render (Playable Style)</option>
+                                <option value="Digital 2D illustration, crisp lines, mobile game art style">2D Illustration</option>
+                                <option value="Cinematic lighting, hyper-realistic, dramatic composition">Cinematic Realistic</option>
+                                <option value="Stylized cartoon, bright UI elements, casual gaming style">Casual/Cartoon</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-top: 1.25rem;">
+                            <label for="aspectRatio">Aspect Ratio</label>
+                            <select id="aspectRatio">
+                                <option value="1:1">Square (1:1) - Instagram/FB</option>
+                                <option value="9:16">Vertical (9:16) - TikTok/Reels/AppLovin</option>
+                                <option value="16:9">Landscape (16:9) - YouTube</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="primary-btn pulse-hover" id="generate-btn">
+                        <i class="ph-fill ph-magic-wand"></i> Generate Creative
+                    </button>
+                </form>
+            </aside>
+
+            <!-- Right: Results Panel -->
+            <section class="results-panel panel-glass">
+                <div class="panel-header">
+                    <h3><i class="ph-fill ph-lightbulb"></i> Output</h3>
+                    <button id="copy-btn" class="icon-btn tooltip" title="Copy text" disabled><i class="ph ph-copy"></i><span class="tooltiptext">Copied!</span></button>
+                </div>
+                
+                <div id="output-area" class="output-content">
+                    <div class="empty-state">
+                        <i class="ph-fill ph-planet"></i>
+                        <p>Configure your campaign on the left and hit generate.</p>
+                    </div>
+                </div>
+
+                <!-- Loading State (Hidden by default) -->
+                <div id="loading-state" class="loading-overlay hidden">
+                    <div class="spinner"></div>
+                    <p>Generating viral concepts...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- API Key Modal -->
+    <div id="api-modal" class="modal hidden">
+        <div class="modal-content panel-glass">
+            <div class="modal-header">
+                <h3><i class="ph-fill ph-key"></i> API Configuration</h3>
+                <button id="close-modal" class="icon-btn"><i class="ph ph-x"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">Enter your Google Gemini API Key. It will be stored locally in your browser.</p>
+                <div class="form-group">
+                    <label for="apiKey">Gemini API Key</label>
+                    <input type="password" id="apiKey" placeholder="AIzaSy...">
+                </div>
+                <button id="save-key-btn" class="primary-btn w-full">Save Key</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="creative.js"></script>
+</body>
+</html>
