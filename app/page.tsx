@@ -27,7 +27,7 @@ export default function Home() {
       <section className="w-full max-w-7xl mx-auto px-6 py-32 flex flex-col items-center text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 text-accent text-sm font-medium mb-8 border border-accent/20">
           <Sparkles className="w-4 h-4" />
-          <span>Internal Tools for Creative Team</span>
+          <span>Internal Tools for Eagle Games</span>
         </div>
         <h2 className="text-5xl md:text-7xl font-extrabold mb-8 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-white/70">
           Welcome back <span className="text-accent drop-shadow-[0_0_20px_rgba(234,179,8,0.4)]"></span>
