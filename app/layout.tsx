@@ -1,13 +1,18 @@
-import type { Metadata } from 'next';
-import { Lexend, Orbitron } from 'next/font/google';
-import './globals.css';
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
 
-const lexend = Lexend({ subsets: ['latin'], variable: '--font-lexend' });
-const orbitron = Orbitron({ subsets: ['latin'], variable: '--font-orbitron' });
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'EasyGoing - Creative Hub',
-  description: 'AI-powered creative asset generator for Mobile Game UA',
+  title: "BaldEagle AI Hub",
+  description: "AI Hub trung tâm dành cho Team Creative của Studio game BaldEagle",
+  openGraph: {
+    title: "BaldEagle AI Hub",
+    description: "AI Hub trung tâm dành cho Team Creative của Studio game BaldEagle",
+    url: "https://app.baldeagle.vn",
+    siteName: "BaldEagle AI Hub",
+  },
 };
 
 export default function RootLayout({
@@ -16,13 +21,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${lexend.variable} ${orbitron.variable}`}>
-      <body className="antialiased selection:bg-primary-500/30 font-sans">
-        <div className="glow glow-1"></div>
-        <div className="glow glow-2"></div>
-        <div className="grid-overlay"></div>
-        {children}
-      </body>
+    <html lang="en">
+      <body className={`${inter.className} min-h-screen antialiased`}>{children}</body>
     </html>
   );
 }
