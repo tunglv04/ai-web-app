@@ -11,7 +11,7 @@ export default function Home() {
             <Wand2 className="w-6 h-6 text-black" />
           </div>
           <h1 className="text-xl font-bold tracking-widest text-white drop-shadow-md">
-            BALDEAGLE <span className="text-accent">AI HUB</span>
+            EAGLE <span className="text-accent">AI HUB</span>
           </h1>
         </div>
         <nav>
@@ -30,10 +30,10 @@ export default function Home() {
           <span>Internal Tools for Creative Team</span>
         </div>
         <h2 className="text-5xl md:text-7xl font-extrabold mb-8 tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-white/70">
-          Welcome back, <span className="text-accent drop-shadow-[0_0_20px_rgba(234,179,8,0.4)]">Team Creative</span>
+          Welcome back<span
         </h2>
         <p className="text-lg md:text-xl text-white/50 max-w-2xl mb-20 leading-relaxed max-w-balance">
-          Your centralized hub for all AI-powered creative production tools at BaldEagle Studio. 
+          Your centralized hub for all AI-powered creative production tools at Eagle Studio.
           Select an application below to start creating magic.
         </p>
 
