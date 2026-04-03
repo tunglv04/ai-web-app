@@ -26,7 +26,7 @@ interface ImageGenerationFormProps {
 }
 
 export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFormProps) {
-  const [config, setConfig] = useState<ImageGenerationConfig>({
+  const initialConfig: ImageGenerationConfig = {
     requestPrompt: "",
     negativePrompt: "",
     aspectRatio: "1:1",
@@ -35,7 +35,30 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
     referenceImages: [],
     promptModel: "gemini-3.1-pro-preview",
     imageModel: "gemini-3-pro-image-preview",
-  });
+  };
+
+  const [config, setConfig] = useState<ImageGenerationConfig>(initialConfig);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = window.localStorage.getItem("general_image_config");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setConfig({ ...initialConfig, ...parsed, referenceImages: [] });
+        }
+      } catch (e) { }
+      setIsLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded && typeof window !== "undefined") {
+      const { referenceImages, ...saveableConfig } = config;
+      window.localStorage.setItem("general_image_config", JSON.stringify(saveableConfig));
+    }
+  }, [config, isLoaded]);
 
   const [availableModels, setAvailableModels] = useState<any[]>([]);
   const [savedSets, setSavedSets] = useState<SavedImageSet[]>([]);
@@ -47,7 +70,7 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
       if (sets) {
         setSavedSets(JSON.parse(sets));
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   // Fetch available models on mount
@@ -56,7 +79,7 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
       const stored = window.localStorage.getItem("google_ai_studio_key");
       if (!stored) return;
       let parsedKey = stored;
-      try { parsedKey = JSON.parse(stored); } catch(e){}
+      try { parsedKey = JSON.parse(stored); } catch (e) { }
 
       try {
         const res = await fetch("/api/models", {
@@ -67,22 +90,26 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
           setAvailableModels(data.models);
           // Prioritize exact stable models instead of fuzzy matching to avoid deprecated models
           const preferredModels = [
-            "gemini-3.1-pro-preview", 
-            "gemini-3.1-flash-preview", 
-            "gemini-3-flash-preview", 
-            "gemini-2.0-flash", 
-            "gemini-1.5-pro", 
+            "gemini-3.1-pro-preview",
+            "gemini-3.1-flash-preview",
+            "gemini-3-flash-preview",
+            "gemini-2.0-flash",
+            "gemini-1.5-pro",
             "gemini-1.5-flash"
           ];
-          for (const pref of preferredModels) {
-            const exactMatch = data.models.find((m: any) => m.name === `models/${pref}`);
-            if (exactMatch) {
-              setConfig(prev => ({ ...prev, promptModel: pref }));
-              break;
+          setConfig(prev => {
+            const isSavedValid = data.models.find((m: any) => m.name === `models/${prev.promptModel}`);
+            if (isSavedValid) return prev;
+
+            for (const pref of preferredModels) {
+              if (data.models.find((m: any) => m.name === `models/${pref}`)) {
+                return { ...prev, promptModel: pref };
+              }
             }
-          }
+            return prev;
+          });
         }
-      } catch (err) {}
+      } catch (err) { }
     };
     fetchModels();
   }, []);
@@ -102,7 +129,7 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
             newImages.push(event.target.result as string);
           }
           processed++;
-          
+
           if (processed === files.length) {
             setConfig((prev) => {
               const updatedImages = [...prev.referenceImages, ...newImages];
@@ -151,8 +178,8 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
     const updatedSets = savedSets.filter(s => s.id !== id);
     setSavedSets(updatedSets);
     try {
-       window.localStorage.setItem("general_image_saved_sets", JSON.stringify(updatedSets));
-    } catch(e) {}
+      window.localStorage.setItem("general_image_saved_sets", JSON.stringify(updatedSets));
+    } catch (e) { }
   };
 
   const loadSet = (set: SavedImageSet) => {
@@ -183,12 +210,12 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
             </button>
           )}
         </div>
-        
+
         {savedSets.length > 0 && (
           <div className="flex gap-2 pb-2 overflow-x-auto custom-scrollbar items-center">
-            <span className="text-xs text-white/50 whitespace-nowrap"><FolderOpen className="inline w-3 h-3 mr-1"/> Saved Sets:</span>
+            <span className="text-xs text-white/50 whitespace-nowrap"><FolderOpen className="inline w-3 h-3 mr-1" /> Saved Sets:</span>
             {savedSets.map(set => (
-              <div 
+              <div
                 key={set.id}
                 onClick={() => loadSet(set)}
                 className="group relative flex items-center gap-2 px-3 py-1.5 bg-accent/10 border border-accent/20 hover:bg-accent/20 hover:border-accent/40 rounded-full cursor-pointer transition-all flex-shrink-0"
@@ -221,10 +248,10 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
           {config.referenceImages.map((imgSrc, idx) => (
             <div key={idx} className="relative w-24 h-24 rounded-2xl overflow-hidden border border-white/10 group flex-shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img 
-                src={imgSrc} 
-                alt={`Reference ${idx}`} 
-                className="w-full h-full object-cover opacity-90 transition-opacity group-hover:opacity-100" 
+              <img
+                src={imgSrc}
+                alt={`Reference ${idx}`}
+                className="w-full h-full object-cover opacity-90 transition-opacity group-hover:opacity-100"
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <button
@@ -238,15 +265,15 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
             </div>
           ))}
 
-          <div 
+          <div
             onClick={() => fileInputRef.current?.click()}
             className="w-24 h-24 border-2 border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-accent/50 hover:bg-white/5 transition-all text-white/50 hover:text-white group flex-shrink-0"
           >
             <Upload className="w-5 h-5 group-hover:-translate-y-1 transition-transform" />
           </div>
         </div>
-        <input 
-          type="file" 
+        <input
+          type="file"
           multiple
           ref={fileInputRef}
           onChange={handleImageUpload}
@@ -290,43 +317,45 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
           <Settings2 className="w-4 h-4 text-accent" />
           Settings
         </label>
-        
+
         {/* Model Selection */}
         <div className="space-y-3 p-4 rounded-xl bg-white/5 border border-white/10 mb-4 text-sm mt-2">
           <div className="flex flex-col gap-1">
             <span className="text-xs text-white/50 uppercase tracking-widest font-bold">Prompt Model (Text)</span>
-            <input 
-              list="prompt-models" 
+            <select
               value={config.promptModel}
               onChange={(e) => setConfig(prev => ({ ...prev, promptModel: e.target.value }))}
-              placeholder="e.g. gemini-1.5-flash"
-              className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-accent focus:outline-none"
-            />
-            <datalist id="prompt-models">
+              className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-accent focus:outline-none appearance-none cursor-pointer"
+            >
+              {availableModels.length === 0 && (
+                <option value={config.promptModel}>{config.promptModel}</option>
+              )}
               {availableModels
                 .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
                 .map(m => (
-                  <option key={m.name} value={m.name.replace('models/', '')}>{m.displayName || m.name}</option>
+                  <option key={m.name} value={m.name.replace('models/', '')}>
+                    {m.displayName || m.name.replace('models/', '')}
+                  </option>
                 ))}
-            </datalist>
+            </select>
           </div>
 
           <div className="flex flex-col gap-1">
             <span className="text-xs text-white/50 uppercase tracking-widest font-bold">Image Model (Generation)</span>
-            <input 
-              list="image-models" 
+            <select
               value={config.imageModel}
               onChange={(e) => setConfig(prev => ({ ...prev, imageModel: e.target.value }))}
-              placeholder="e.g. imagen-3.0-generate-002"
-              className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-accent focus:outline-none"
-            />
-            <datalist id="image-models">
-              <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash Image Preview</option>
-              <option value="gemini-3-pro-image-preview">Gemini 3 Pro Image Preview</option>
-              <option value="imagen-3.0-generate-002">Imagen 3.0 (002)</option>
-              <option value="imagen-3.0-generate-001">Imagen 3.0 (001)</option>
-            </datalist>
-            <p className="text-[10px] text-white/30 italic">If you faced an error, try updating the model names manually above.</p>
+              className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-accent focus:outline-none appearance-none cursor-pointer"
+            >
+              {availableModels.length === 0 && (
+                <option value={config.imageModel}>{config.imageModel}</option>
+              )}
+              {availableModels.map(m => (
+                <option key={m.name} value={m.name.replace('models/', '')}>
+                  {m.displayName || m.name.replace('models/', '')}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -339,11 +368,10 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
                 key={ratio}
                 type="button"
                 onClick={() => setConfig((prev) => ({ ...prev, aspectRatio: ratio }))}
-                className={`py-2 px-3 rounded-lg border text-sm transition-all ${
-                  config.aspectRatio === ratio 
-                    ? "bg-accent/20 border-accent/50 text-accent" 
+                className={`py-2 px-3 rounded-lg border text-sm transition-all ${config.aspectRatio === ratio
+                    ? "bg-accent/20 border-accent/50 text-accent"
                     : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20"
-                }`}
+                  }`}
               >
                 {ratio}
               </button>
@@ -360,11 +388,10 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
                 key={res}
                 type="button"
                 onClick={() => setConfig((prev) => ({ ...prev, resolution: res }))}
-                className={`py-2 px-2 rounded-lg border text-sm transition-all ${
-                  config.resolution === res 
-                    ? "bg-accent/20 border-accent/50 text-accent" 
+                className={`py-2 px-2 rounded-lg border text-sm transition-all ${config.resolution === res
+                    ? "bg-accent/20 border-accent/50 text-accent"
                     : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20"
-                }`}
+                  }`}
               >
                 {res}
               </button>
@@ -381,11 +408,10 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
                 key={num}
                 type="button"
                 onClick={() => setConfig((prev) => ({ ...prev, count: num }))}
-                className={`py-2 px-2 rounded-lg border text-sm transition-all ${
-                  config.count === num 
-                    ? "bg-accent/20 border-accent/50 text-accent" 
+                className={`py-2 px-2 rounded-lg border text-sm transition-all ${config.count === num
+                    ? "bg-accent/20 border-accent/50 text-accent"
                     : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20"
-                }`}
+                  }`}
               >
                 {num}
               </button>
