@@ -4,19 +4,115 @@ import { useState } from "react";
 import { ApiKeyModal } from "@/components/general-image/ApiKeyModal";
 import { ImageGenerationForm, ImageGenerationConfig } from "@/components/general-image/ImageGenerationForm";
 import Link from "next/link";
-import { ArrowLeft, Image as ImageIcon, Settings, Download, Wand2 } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, Settings, Download, Wand2, Zap } from "lucide-react";
+
+// --- Cache Utilities ---
+
+/** Fast fingerprint: model + image count + size + first 50 chars of each image */
+function createCacheFingerprint(images: string[], model: string, apiKeyPrefix: string): string {
+  const parts = images.map((img) => `${img.length}:${img.substring(0, 50)}`);
+  return `${apiKeyPrefix}|${model}|${images.length}|${parts.join("|")}`;
+}
+
+type StoredCacheInfo = {
+  fingerprint: string;
+  cacheName: string;
+  expiry: number; // timestamp
+};
+
+function getStoredCache(): StoredCacheInfo | null {
+  try {
+    const stored = window.localStorage.getItem("ref_image_cache");
+    if (stored) return JSON.parse(stored);
+  } catch (e) {}
+  return null;
+}
+
+function storeCache(info: StoredCacheInfo) {
+  try {
+    window.localStorage.setItem("ref_image_cache", JSON.stringify(info));
+  } catch (e) {}
+}
+
+function clearStoredCache() {
+  try {
+    window.localStorage.removeItem("ref_image_cache");
+  } catch (e) {}
+}
+
+/**
+ * Try to get a valid cached content name for the given reference images + model.
+ * If no valid cache exists, create one via /api/cache.
+ * Returns null if caching isn't possible (no images, API error, content too small).
+ */
+async function getOrCreateCache(
+  apiKey: string,
+  images: string[],
+  model: string
+): Promise<string | null> {
+  const fingerprint = createCacheFingerprint(images, model, apiKey.substring(0, 8));
+
+  // Check for existing valid cache
+  const stored = getStoredCache();
+  if (stored && stored.fingerprint === fingerprint && stored.expiry > Date.now()) {
+    console.log("♻️ Reusing cached reference images:", stored.cacheName);
+    return stored.cacheName;
+  }
+
+  // Create a new cache
+  try {
+    const res = await fetch("/api/cache", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-google-api-key": apiKey,
+      },
+      body: JSON.stringify({ referenceImages: images, promptModel: model }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.warn("Cache creation failed:", data.error, "code:", data.code);
+      // If content is too small for caching, don't retry — just skip caching
+      if (data.code === "CONTENT_TOO_SMALL") {
+        console.log("📝 Reference images too small for caching, using inline mode");
+      }
+      return null;
+    }
+
+    if (data.cacheName) {
+      storeCache({
+        fingerprint,
+        cacheName: data.cacheName,
+        expiry: Date.now() + 55 * 60 * 1000, // 55 min (buffer before 1hr TTL)
+      });
+      console.log("✅ Created new cache:", data.cacheName);
+      return data.cacheName;
+    }
+  } catch (e) {
+    console.warn("Cache creation error, proceeding without cache:", e);
+  }
+
+  return null;
+}
+
+// --- Page Component ---
 
 export default function GeneralImagePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [enhancedPromptOutput, setEnhancedPromptOutput] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>("Crafting your vision...");
+  const [lastCacheUsed, setLastCacheUsed] = useState(false);
 
   const handleGenerate = async (config: ImageGenerationConfig) => {
     setIsGenerating(true);
     setErrorMessage(null);
     setGeneratedImages([]);
     setEnhancedPromptOutput(null);
+    setLastCacheUsed(false);
 
     try {
       // Fetch API Key from LocalStorage and parse it since useLocalStorage stringifies it
@@ -30,13 +126,22 @@ export default function GeneralImagePage() {
         throw new Error("Missing API Key");
       }
 
+      // Handle context caching for reference images
+      let cacheName: string | null = null;
+      if (config.referenceImages.length > 0) {
+        setStatusMessage("Preparing reference image cache...");
+        cacheName = await getOrCreateCache(apiKey, config.referenceImages, config.promptModel);
+      }
+
+      setStatusMessage("Crafting your vision...");
+
       const response = await fetch("/api/generate-image", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-google-api-key": apiKey
+          "x-google-api-key": apiKey,
         },
-        body: JSON.stringify(config)
+        body: JSON.stringify({ ...config, cacheName }),
       });
 
       const data = await response.json();
@@ -45,6 +150,12 @@ export default function GeneralImagePage() {
         throw new Error(data.error || "Failed to generate image from server.");
       }
 
+      // If the server reports cache expired, clear local cache so next request creates a new one
+      if (data.cacheExpired) {
+        clearStoredCache();
+      }
+
+      setLastCacheUsed(data.cacheUsed ?? false);
       setGeneratedImages(data.images);
       setEnhancedPromptOutput(data.enhancedPrompt);
 
@@ -85,6 +196,7 @@ export default function GeneralImagePage() {
             // Logic to trigger the modal open if want to change key
             // For now, it will be handled by context or event bus, but we can also just let user delete localStorage
             window.localStorage.removeItem("google_ai_studio_key");
+            clearStoredCache(); // Also clear cache since it's tied to the API key
             window.location.reload();
           }}
           title="Reset API Key"
@@ -109,7 +221,7 @@ export default function GeneralImagePage() {
           {isGenerating ? (
             <div className="flex flex-col items-center z-10">
               <div className="w-16 h-16 border-4 border-white/10 border-t-accent rounded-full animate-spin mb-6" />
-              <h3 className="text-xl font-bold mb-2 animate-pulse">Crafting your vision...</h3>
+              <h3 className="text-xl font-bold mb-2 animate-pulse">{statusMessage}</h3>
               <p className="text-white/50 text-sm">Expanding prompt with Gemini and generating with Imagen 3</p>
             </div>
           ) : errorMessage ? (
@@ -119,6 +231,14 @@ export default function GeneralImagePage() {
             </div>
           ) : generatedImages.length > 0 ? (
             <div className="w-full h-full flex flex-col gap-4 overflow-y-auto custom-scrollbar z-10 w-full">
+              {/* Cache indicator */}
+              {lastCacheUsed && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 self-start">
+                  <Zap className="w-3.5 h-3.5 text-green-400" />
+                  <span className="text-xs text-green-400 font-medium">Cache used — saved tokens on reference images</span>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {generatedImages.map((img, idx) => (
                   <div key={idx} className="relative group rounded-xl overflow-hidden border border-white/10 bg-black/20">
