@@ -3,15 +3,16 @@ import { GoogleGenAI } from "@google/genai";
 
 export async function POST(req: NextRequest) {
   try {
-    const { 
-      requestPrompt, 
-      negativePrompt, 
-      aspectRatio, 
+    const {
+      requestPrompt,
+      negativePrompt,
+      aspectRatio,
       resolution,
       count,
       referenceImages,
       promptModel,
-      imageModel
+      imageModel,
+      temperature
     } = await req.json();
 
     // The API key is sent via custom header from the client
@@ -83,7 +84,7 @@ Do NOT simply caption the reference images identically; instead, creatively mix 
         contents: contents,
         config: {
           systemInstruction: systemInstruction,
-          temperature: 0.7,
+          temperature: temperature ?? 0.3,
         }
       });
       enhancedPrompt = promptEnhanceRes.text?.trim() || requestPrompt;
@@ -130,12 +131,12 @@ Do NOT simply caption the reference images identically; instead, creatively mix 
         reinforcedPrompt += `\n\n[CRITICAL NEGATIVE PROMPT - DO NOT DEPICT OR INCLUDE THESE ELEMENTS]: ${negativePrompt}`;
       }
       reinforcedPrompt += `\n\n[SYSTEM DIRECTIVE: Output the generated image strictly in ${mappedRatio} aspect ratio and targeting ${resolution || '2K'} visual quality.]`;
-      
+
       // We use a Promise.all loop to generate `count` images concurrently since candidateCount often defaults/limits to 1
       const fetchPromises = Array.from({ length: count || 1 }).map((_, i) => {
         const reqBody = {
           contents: [{ role: "user", parts: [{ text: reinforcedPrompt }] }],
-          generationConfig: { temperature: 0.7 + i * 0.05 } // slight variation to ensure different results
+          generationConfig: { temperature: (temperature ?? 0.3) + i * 0.05 } // slight variation to ensure different results
         };
 
         return fetch(`https://generativelanguage.googleapis.com/${apiVersion}/models/${finalImageModel}:generateContent?key=${apiKey}`, {
@@ -146,7 +147,7 @@ Do NOT simply caption the reference images identically; instead, creatively mix 
       });
 
       const responses = await Promise.all(fetchPromises);
-      
+
       for (const resText of responses) {
         let parsed: any = {};
         try { parsed = JSON.parse(resText); } catch (e) {
@@ -155,8 +156,8 @@ Do NOT simply caption the reference images identically; instead, creatively mix 
         }
 
         if (parsed.error) {
-           console.error("Partial image generation error:", parsed.error);
-           throw new Error(parsed.error.message || "Failed to generate an image part.");
+          console.error("Partial image generation error:", parsed.error);
+          throw new Error(parsed.error.message || "Failed to generate an image part.");
         }
 
         const candidates = parsed.candidates || [];

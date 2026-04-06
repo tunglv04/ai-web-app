@@ -12,6 +12,7 @@ export type ImageGenerationConfig = {
   referenceImages: string[];
   promptModel: string;
   imageModel: string;
+  temperature: number;
 };
 
 type SavedImageSet = {
@@ -35,6 +36,7 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
     referenceImages: [],
     promptModel: "gemini-3.1-pro-preview",
     imageModel: "gemini-3-pro-image-preview",
+    temperature: 0.3,
   };
 
   const [config, setConfig] = useState<ImageGenerationConfig>(initialConfig);
@@ -369,8 +371,8 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
                 type="button"
                 onClick={() => setConfig((prev) => ({ ...prev, aspectRatio: ratio }))}
                 className={`py-2 px-3 rounded-lg border text-sm transition-all ${config.aspectRatio === ratio
-                    ? "bg-accent/20 border-accent/50 text-accent"
-                    : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20"
+                  ? "bg-accent/20 border-accent/50 text-accent"
+                  : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20"
                   }`}
               >
                 {ratio}
@@ -389,8 +391,8 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
                 type="button"
                 onClick={() => setConfig((prev) => ({ ...prev, resolution: res }))}
                 className={`py-2 px-2 rounded-lg border text-sm transition-all ${config.resolution === res
-                    ? "bg-accent/20 border-accent/50 text-accent"
-                    : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20"
+                  ? "bg-accent/20 border-accent/50 text-accent"
+                  : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20"
                   }`}
               >
                 {res}
@@ -409,14 +411,43 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
                 type="button"
                 onClick={() => setConfig((prev) => ({ ...prev, count: num }))}
                 className={`py-2 px-2 rounded-lg border text-sm transition-all ${config.count === num
-                    ? "bg-accent/20 border-accent/50 text-accent"
-                    : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20"
+                  ? "bg-accent/20 border-accent/50 text-accent"
+                  : "bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20"
                   }`}
               >
                 {num}
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Temperature */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-white/50 uppercase tracking-widest font-bold">Temperature</span>
+            <span className="text-sm font-mono font-bold text-accent">{config.temperature.toFixed(1)}</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.1"
+            value={config.temperature}
+            onChange={(e) => setConfig((prev) => ({ ...prev, temperature: parseFloat(e.target.value) }))}
+            className="w-full h-2 rounded-full appearance-none cursor-pointer bg-white/10 accent-[var(--accent)] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(234,179,8,0.4)] [&::-webkit-slider-thumb]:transition-shadow [&::-webkit-slider-thumb]:hover:shadow-[0_0_14px_rgba(234,179,8,0.6)]"
+          />
+          <div className="flex justify-between text-[10px] text-white/30 font-medium">
+            <span>Focused</span>
+            <span>Balanced</span>
+            <span>Creative</span>
+          </div>
+          <p className="text-xs text-white/40 leading-relaxed">
+            {config.temperature <= 0.3
+              ? "Low temperature — the AI sticks closely to the most likely output. Best for consistent, predictable results."
+              : config.temperature <= 0.6
+                ? "Moderate temperature — a good balance between creativity and consistency."
+                : "High temperature — the AI explores more creative and varied outputs. May produce unexpected results."}
+          </p>
         </div>
       </section>
 
