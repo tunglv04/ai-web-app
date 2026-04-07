@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Upload, X, ImageIcon, Settings2, Trash2, Wand2, FolderPlus, FolderOpen, ChevronDown, RotateCcw, Brain, FileText, Save, Plus } from "lucide-react";
+import { Upload, X, ImageIcon, Settings2, Trash2, Wand2, FolderPlus, FolderOpen, ChevronDown, RotateCcw, Brain, FileText, Save, Plus, Zap } from "lucide-react";
 import { SYSTEM_INSTRUCTION, REFERENCE_IMAGE_ANALYSIS, BUILT_IN_PRESETS, PromptPreset } from "@/lib/prompts";
 
 const MAX_REFERENCE_IMAGES = 14;
@@ -19,6 +19,7 @@ export type ImageGenerationConfig = {
   temperature: number;
   systemInstruction: string;
   referenceImageAnalysis: string;
+  skipExpansion: boolean;
 };
 
 type SavedImageSet = {
@@ -45,6 +46,7 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
     temperature: 0.3,
     systemInstruction: SYSTEM_INSTRUCTION,
     referenceImageAnalysis: REFERENCE_IMAGE_ANALYSIS,
+    skipExpansion: false,
   };
 
   const [config, setConfig] = useState<ImageGenerationConfig>(initialConfig);
@@ -388,15 +390,35 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
       {/* Prompts */}
       <section className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-semibold flex items-center gap-2">
-            <Wand2 className="w-4 h-4 text-accent" />
-            Prompt
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-semibold flex items-center gap-2">
+              <Wand2 className="w-4 h-4 text-accent" />
+              Prompt
+            </label>
+            <button
+              type="button"
+              onClick={() => setConfig(prev => ({ ...prev, skipExpansion: !prev.skipExpansion }))}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${
+                config.skipExpansion
+                  ? "bg-orange-500/15 border-orange-500/40 text-orange-400"
+                  : "bg-accent/10 border-accent/30 text-accent"
+              }`}
+              title={config.skipExpansion ? "Using your prompt directly — no AI enhancement" : "AI will expand and enhance your prompt"}
+            >
+              <Zap className="w-3 h-3" />
+              {config.skipExpansion ? "Direct Mode" : "AI Expand"}
+            </button>
+          </div>
+          {config.skipExpansion && (
+            <p className="text-[11px] text-orange-400/70 leading-relaxed">
+              ⚡ Your prompt will be sent directly to the image model without AI enhancement. Write a detailed, descriptive prompt for best results.
+            </p>
+          )}
           <textarea
             value={config.requestPrompt}
             onChange={(e) => setConfig((prev) => ({ ...prev, requestPrompt: e.target.value }))}
-            placeholder="Describe what you want to generate..."
-            rows={4}
+            placeholder={config.skipExpansion ? "Write your full, detailed prompt here..." : "Describe what you want to generate..."}
+            rows={config.skipExpansion ? 6 : 4}
             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-white/30 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all resize-none custom-scrollbar"
             required
           />

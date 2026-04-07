@@ -16,7 +16,8 @@ export async function POST(req: NextRequest) {
       temperature,
       cacheName,
       systemInstruction: clientSystemInstruction,
-      referenceImageAnalysis: clientRefAnalysis
+      referenceImageAnalysis: clientRefAnalysis,
+      skipExpansion
     } = await req.json();
 
     // The API key is sent via custom header from the client
@@ -39,8 +40,13 @@ export async function POST(req: NextRequest) {
     let cacheUsed = false;
     let cacheExpired = false;
 
+    // Skip prompt expansion if user wants direct mode
+    if (skipExpansion) {
+      console.log("⚡ Direct mode — skipping prompt expansion, using raw prompt");
+      enhancedPrompt = requestPrompt;
+    }
     // --- Path A: Use cached context (reference images already cached) ---
-    if (cacheName) {
+    else if (cacheName) {
       try {
         let cachedContents: any[] = [requestPrompt];
         if (negativePrompt) {
