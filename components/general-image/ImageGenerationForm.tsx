@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Upload, X, ImageIcon, Settings2, Trash2, Wand2, FolderPlus, FolderOpen, ChevronDown, RotateCcw, Brain, FileText } from "lucide-react";
-import { SYSTEM_INSTRUCTION, REFERENCE_IMAGE_ANALYSIS } from "@/lib/prompts";
+import { Upload, X, ImageIcon, Settings2, Trash2, Wand2, FolderPlus, FolderOpen, ChevronDown, RotateCcw, Brain, FileText, Save, Plus } from "lucide-react";
+import { SYSTEM_INSTRUCTION, REFERENCE_IMAGE_ANALYSIS, BUILT_IN_PRESETS, PromptPreset } from "@/lib/prompts";
 
 const MAX_REFERENCE_IMAGES = 14;
 const WARN_REFERENCE_IMAGES = 8;
@@ -51,6 +51,8 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
   const [isLoaded, setIsLoaded] = useState(false);
   const [showSystemInstruction, setShowSystemInstruction] = useState(false);
   const [showRefAnalysis, setShowRefAnalysis] = useState(false);
+  const [activePresetId, setActivePresetId] = useState<string>("general");
+  const [customPresets, setCustomPresets] = useState<PromptPreset[]>([]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -81,6 +83,20 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
       const sets = window.localStorage.getItem("general_image_saved_sets");
       if (sets) {
         setSavedSets(JSON.parse(sets));
+      }
+    } catch (e) { }
+    // Load custom prompt presets
+    try {
+      const presets = window.localStorage.getItem("custom_prompt_presets");
+      if (presets) {
+        setCustomPresets(JSON.parse(presets));
+      }
+    } catch (e) { }
+    // Load active preset ID
+    try {
+      const savedPresetId = window.localStorage.getItem("active_preset_id");
+      if (savedPresetId) {
+        setActivePresetId(JSON.parse(savedPresetId));
       }
     } catch (e) { }
   }, []);
@@ -201,6 +217,60 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
   const loadSet = (set: SavedImageSet) => {
     setConfig(prev => ({ ...prev, referenceImages: [...set.images].slice(0, MAX_REFERENCE_IMAGES) }));
   };
+
+  // --- Prompt Preset Handlers ---
+  const allPresets = [...BUILT_IN_PRESETS, ...customPresets];
+
+  const applyPreset = (preset: PromptPreset) => {
+    setActivePresetId(preset.id);
+    setConfig(prev => ({
+      ...prev,
+      systemInstruction: preset.systemInstruction,
+      referenceImageAnalysis: preset.referenceImageAnalysis,
+    }));
+    try {
+      window.localStorage.setItem("active_preset_id", JSON.stringify(preset.id));
+    } catch (e) { }
+  };
+
+  const handleSaveCustomPreset = () => {
+    const presetName = prompt("Name this preset:", `Custom ${customPresets.length + 1}`);
+    if (!presetName) return;
+
+    const newPreset: PromptPreset = {
+      id: `custom-${Date.now()}`,
+      name: presetName,
+      icon: "✏️",
+      description: "Custom preset",
+      systemInstruction: config.systemInstruction,
+      referenceImageAnalysis: config.referenceImageAnalysis,
+      builtIn: false,
+    };
+
+    const updated = [...customPresets, newPreset];
+    setCustomPresets(updated);
+    setActivePresetId(newPreset.id);
+    try {
+      window.localStorage.setItem("custom_prompt_presets", JSON.stringify(updated));
+      window.localStorage.setItem("active_preset_id", JSON.stringify(newPreset.id));
+    } catch (e) {
+      alert("Storage full! Please delete some presets.");
+    }
+  };
+
+  const handleDeletePreset = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = customPresets.filter(p => p.id !== id);
+    setCustomPresets(updated);
+    try {
+      window.localStorage.setItem("custom_prompt_presets", JSON.stringify(updated));
+    } catch (e) { }
+    if (activePresetId === id) {
+      applyPreset(BUILT_IN_PRESETS[0]);
+    }
+  };
+
+  const activePreset = allPresets.find(p => p.id === activePresetId) || BUILT_IN_PRESETS[0];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -346,10 +416,52 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
 
       {/* AI Instructions (Collapsible) */}
       <section className="space-y-3">
-        <label className="text-sm font-semibold flex items-center gap-2">
-          <Brain className="w-4 h-4 text-accent" />
-          AI Instructions
-        </label>
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-semibold flex items-center gap-2">
+            <Brain className="w-4 h-4 text-accent" />
+            AI Instructions
+          </label>
+          <button
+            type="button"
+            onClick={handleSaveCustomPreset}
+            className="text-xs flex items-center gap-1 bg-white/5 hover:bg-white/10 px-2 py-1 rounded-md transition-colors flex-shrink-0"
+          >
+            <Save className="w-3 h-3 text-accent" /> Save Preset
+          </button>
+        </div>
+
+        {/* Preset Picker */}
+        <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1">
+          {allPresets.map(preset => (
+            <div
+              key={preset.id}
+              onClick={() => applyPreset(preset)}
+              className={`group relative flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all flex-shrink-0 ${
+                activePresetId === preset.id
+                  ? "bg-accent/15 border-accent/40 shadow-[0_0_12px_rgba(234,179,8,0.1)]"
+                  : "bg-white/5 border-white/10 hover:bg-white/[0.07] hover:border-white/20"
+              }`}
+              title={preset.description}
+            >
+              <span className="text-sm">{preset.icon}</span>
+              <span className={`text-xs font-medium ${
+                activePresetId === preset.id ? "text-accent" : "text-white/70"
+              }`}>{preset.name}</span>
+              {!preset.builtIn && (
+                <button
+                  type="button"
+                  onClick={(e) => handleDeletePreset(preset.id, e)}
+                  className="ml-0.5 p-0.5 text-white/30 hover:text-red-400 hover:bg-red-400/10 rounded opacity-0 group-hover:opacity-100 transition-all"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Active preset description */}
+        <p className="text-[11px] text-white/40 leading-relaxed">{activePreset.description}</p>
 
         {/* System Instruction */}
         <div className="rounded-xl border border-white/10 overflow-hidden">
@@ -361,7 +473,7 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
             <div className="flex items-center gap-2">
               <FileText className="w-3.5 h-3.5 text-accent/70" />
               <span className="text-xs font-bold text-white/60 uppercase tracking-widest">System Instruction</span>
-              {config.systemInstruction !== SYSTEM_INSTRUCTION && (
+              {config.systemInstruction !== activePreset.systemInstruction && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent font-medium">Modified</span>
               )}
             </div>
@@ -377,14 +489,14 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
               />
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-white/30">Controls how the AI enhances your prompts</p>
-                {config.systemInstruction !== SYSTEM_INSTRUCTION && (
+                {config.systemInstruction !== activePreset.systemInstruction && (
                   <button
                     type="button"
-                    onClick={() => setConfig(prev => ({ ...prev, systemInstruction: SYSTEM_INSTRUCTION }))}
+                    onClick={() => setConfig(prev => ({ ...prev, systemInstruction: activePreset.systemInstruction }))}
                     className="text-[10px] flex items-center gap-1 text-accent/70 hover:text-accent transition-colors"
                   >
                     <RotateCcw className="w-3 h-3" />
-                    Reset to Default
+                    Reset to Preset
                   </button>
                 )}
               </div>
@@ -402,7 +514,7 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
             <div className="flex items-center gap-2">
               <ImageIcon className="w-3.5 h-3.5 text-accent/70" />
               <span className="text-xs font-bold text-white/60 uppercase tracking-widest">Reference Image Analysis</span>
-              {config.referenceImageAnalysis !== REFERENCE_IMAGE_ANALYSIS && (
+              {config.referenceImageAnalysis !== activePreset.referenceImageAnalysis && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent font-medium">Modified</span>
               )}
             </div>
@@ -418,14 +530,14 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
               />
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-white/30">How the AI reads your reference images</p>
-                {config.referenceImageAnalysis !== REFERENCE_IMAGE_ANALYSIS && (
+                {config.referenceImageAnalysis !== activePreset.referenceImageAnalysis && (
                   <button
                     type="button"
-                    onClick={() => setConfig(prev => ({ ...prev, referenceImageAnalysis: REFERENCE_IMAGE_ANALYSIS }))}
+                    onClick={() => setConfig(prev => ({ ...prev, referenceImageAnalysis: activePreset.referenceImageAnalysis }))}
                     className="text-[10px] flex items-center gap-1 text-accent/70 hover:text-accent transition-colors"
                   >
                     <RotateCcw className="w-3 h-3" />
-                    Reset to Default
+                    Reset to Preset
                   </button>
                 )}
               </div>
