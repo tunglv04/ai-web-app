@@ -14,7 +14,9 @@ export async function POST(req: NextRequest) {
       promptModel,
       imageModel,
       temperature,
-      cacheName
+      cacheName,
+      systemInstruction: clientSystemInstruction,
+      referenceImageAnalysis: clientRefAnalysis
     } = await req.json();
 
     // The API key is sent via custom header from the client
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     // --- Path B: Inline everything (no cache, or cache failed) ---
     if (!cacheUsed) {
-      const systemInstruction = SYSTEM_INSTRUCTION;
+      const systemInstruction = clientSystemInstruction || SYSTEM_INSTRUCTION;
 
       let contents: any[] = [requestPrompt];
       if (negativePrompt) {
@@ -84,7 +86,7 @@ export async function POST(req: NextRequest) {
             contents.push({ inlineData: parsed });
           }
         }
-        contents.push(REFERENCE_IMAGE_ANALYSIS);
+        contents.push(clientRefAnalysis || REFERENCE_IMAGE_ANALYSIS);
       }
 
       if (resolution) {

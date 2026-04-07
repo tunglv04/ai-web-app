@@ -8,10 +8,10 @@ import { ArrowLeft, Image as ImageIcon, Settings, Download, Wand2, Zap } from "l
 
 // --- Cache Utilities ---
 
-/** Fast fingerprint: model + image count + size + first 50 chars of each image */
-function createCacheFingerprint(images: string[], model: string, apiKeyPrefix: string): string {
+/** Fast fingerprint: model + image count + size + first 50 chars of each image + instruction lengths */
+function createCacheFingerprint(images: string[], model: string, apiKeyPrefix: string, sysInstr: string, refAnalysis: string): string {
   const parts = images.map((img) => `${img.length}:${img.substring(0, 50)}`);
-  return `${apiKeyPrefix}|${model}|${images.length}|${parts.join("|")}`;
+  return `${apiKeyPrefix}|${model}|${images.length}|${sysInstr.length}|${refAnalysis.length}|${parts.join("|")}`;
 }
 
 type StoredCacheInfo = {
@@ -24,20 +24,20 @@ function getStoredCache(): StoredCacheInfo | null {
   try {
     const stored = window.localStorage.getItem("ref_image_cache");
     if (stored) return JSON.parse(stored);
-  } catch (e) {}
+  } catch (e) { }
   return null;
 }
 
 function storeCache(info: StoredCacheInfo) {
   try {
     window.localStorage.setItem("ref_image_cache", JSON.stringify(info));
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function clearStoredCache() {
   try {
     window.localStorage.removeItem("ref_image_cache");
-  } catch (e) {}
+  } catch (e) { }
 }
 
 /**
@@ -48,9 +48,11 @@ function clearStoredCache() {
 async function getOrCreateCache(
   apiKey: string,
   images: string[],
-  model: string
+  model: string,
+  systemInstruction: string,
+  referenceImageAnalysis: string
 ): Promise<string | null> {
-  const fingerprint = createCacheFingerprint(images, model, apiKey.substring(0, 8));
+  const fingerprint = createCacheFingerprint(images, model, apiKey.substring(0, 8), systemInstruction, referenceImageAnalysis);
 
   // Check for existing valid cache
   const stored = getStoredCache();
@@ -67,14 +69,18 @@ async function getOrCreateCache(
         "Content-Type": "application/json",
         "x-google-api-key": apiKey,
       },
-      body: JSON.stringify({ referenceImages: images, promptModel: model }),
+      body: JSON.stringify({
+        referenceImages: images,
+        promptModel: model,
+        systemInstruction,
+        referenceImageAnalysis,
+      }),
     });
 
     const data = await res.json();
 
     if (!res.ok) {
       console.warn("Cache creation failed:", data.error, "code:", data.code);
-      // If content is too small for caching, don't retry — just skip caching
       if (data.code === "CONTENT_TOO_SMALL") {
         console.log("📝 Reference images too small for caching, using inline mode");
       }
@@ -85,7 +91,7 @@ async function getOrCreateCache(
       storeCache({
         fingerprint,
         cacheName: data.cacheName,
-        expiry: Date.now() + 55 * 60 * 1000, // 55 min (buffer before 1hr TTL)
+        expiry: Date.now() + 55 * 60 * 1000,
       });
       console.log("✅ Created new cache:", data.cacheName);
       return data.cacheName;
@@ -120,7 +126,7 @@ export default function GeneralImagePage() {
       let apiKey = rawApiKey;
       try {
         if (rawApiKey) apiKey = JSON.parse(rawApiKey);
-      } catch (e) {}
+      } catch (e) { }
 
       if (!apiKey) {
         throw new Error("Missing API Key");
@@ -130,7 +136,7 @@ export default function GeneralImagePage() {
       let cacheName: string | null = null;
       if (config.referenceImages.length > 0) {
         setStatusMessage("Preparing reference image cache...");
-        cacheName = await getOrCreateCache(apiKey, config.referenceImages, config.promptModel);
+        cacheName = await getOrCreateCache(apiKey, config.referenceImages, config.promptModel, config.systemInstruction, config.referenceImageAnalysis);
       }
 
       setStatusMessage("Crafting your vision...");
@@ -170,12 +176,12 @@ export default function GeneralImagePage() {
   return (
     <main className="min-h-screen flex flex-col items-center bg-black text-white relative">
       <ApiKeyModal />
-      
+
       {/* Header */}
       <header className="w-full border-b border-white/10 p-4 flex items-center justify-between max-w-[1600px] mx-auto z-10">
         <div className="flex items-center gap-4">
-          <Link 
-            href="/" 
+          <Link
+            href="/"
             className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10"
           >
             <ArrowLeft className="w-5 h-5 text-white/70" />
@@ -190,7 +196,7 @@ export default function GeneralImagePage() {
           </div>
         </div>
 
-        <button 
+        <button
           className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex items-center gap-2 text-sm font-medium"
           onClick={() => {
             // Logic to trigger the modal open if want to change key
@@ -217,7 +223,7 @@ export default function GeneralImagePage() {
         <section className="flex flex-col items-center justify-center min-h-[500px] h-full border border-white/10 rounded-2xl bg-white/[0.02] p-6 relative overflow-hidden">
           <div className="absolute inset-0 bg-blue-500/5 blur-[120px] rounded-full pointer-events-none" />
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
-          
+
           {isGenerating ? (
             <div className="flex flex-col items-center z-10">
               <div className="w-16 h-16 border-4 border-white/10 border-t-accent rounded-full animate-spin mb-6" />
@@ -252,7 +258,7 @@ export default function GeneralImagePage() {
                   </div>
                 ))}
               </div>
-              
+
               {enhancedPromptOutput && (
                 <div className="mt-4 p-4 rounded-xl border border-accent/20 bg-accent/5 backdrop-blur-sm self-stretch text-left">
                   <div className="flex items-center gap-2 mb-2">

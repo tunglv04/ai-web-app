@@ -14,7 +14,7 @@ import { SYSTEM_INSTRUCTION, REFERENCE_IMAGE_ANALYSIS, parseBase64Image } from "
  */
 export async function POST(req: NextRequest) {
   try {
-    const { referenceImages, promptModel } = await req.json();
+    const { referenceImages, promptModel, systemInstruction: clientSystemInstruction, referenceImageAnalysis: clientRefAnalysis } = await req.json();
     const apiKey = req.headers.get("x-google-api-key");
 
     if (!apiKey) {
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         parts.push({ inlineData: parsed });
       }
     }
-    parts.push({ text: REFERENCE_IMAGE_ANALYSIS });
+    parts.push({ text: clientRefAnalysis || REFERENCE_IMAGE_ANALYSIS });
 
     // Create the cache with system instruction + reference images
     const cache = await ai.caches.create({
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
             parts: [{ text: "I have thoroughly analyzed the provided reference images. I understand their artistic style, color palette, lighting, textures, camera perspective, composition, and rendering characteristics. I am ready to fuse these visual qualities into enhanced prompts for any concept you provide." }]
           }
         ],
-        systemInstruction: SYSTEM_INSTRUCTION,
+        systemInstruction: clientSystemInstruction || SYSTEM_INSTRUCTION,
         ttl: "3600s", // 1 hour
         displayName: "eagle-ai-ref-images"
       }
