@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
+import { SYSTEM_INSTRUCTION, REFERENCE_IMAGE_ANALYSIS, parseBase64Image } from "@/lib/prompts";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +13,10 @@ export async function POST(req: NextRequest) {
       referenceImages,
       promptModel,
       imageModel,
-      temperature
+      temperature,
+      cacheName,
+      systemInstruction: clientSystemInstruction,
+      referenceImageAnalysis: clientRefAnalysis
     } = await req.json();
 
     // The API key is sent via custom header from the client
@@ -25,79 +29,91 @@ export async function POST(req: NextRequest) {
     // Initialize GenAI client
     const ai = new GoogleGenAI({ apiKey });
 
-    // 1. Expand prompt using Gemini Text Model
-    // We want a highly detailed, artistic description based on user's simple prompt.
-    const systemInstruction = `You are an elite, world-class AI Image Prompt Engineer.
-Your objective is to take a simple user concept and expand it into a breathtaking, highly detailed, and professional image generation prompt. 
-You must enhance the prompt with specific photography/art terminology, cinematic lighting descriptors, precise camera angles, hyper-realistic textures, color grading, and atmospheric details. 
-If the user provides reference images, actively fuse their aesthetic DNA into the concept. Avoid cliches. Keep it structured, visually evocative, and optimized for cutting-edge text-to-image models. DO NOT output any conversational text, pleasantries, or wrapper quotes; output ONLY the final master prompt. Maximum 150 words.`;
-
-    let contents: any[] = [requestPrompt];
-    if (negativePrompt) {
-      contents.push(`\nThe user also specifies a NEGATIVE PROMPT (things absolutely to AVOID in the image): "${negativePrompt}". Ensure your enhanced description actively steers clear of these elements and does not accidentally describe them.`);
-    }
-
-    // If reference images are provided, parse them and pass to Gemini
-    if (referenceImages && Array.isArray(referenceImages) && referenceImages.length > 0) {
-      for (const refImage of referenceImages) {
-        if (refImage && refImage.startsWith('data:image/')) {
-          const match = refImage.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
-          if (match) {
-            const mimeType = match[1];
-            const base64Data = match[2];
-            contents.push({
-              inlineData: {
-                data: base64Data,
-                mimeType: mimeType
-              }
-            });
-          }
-        }
-      }
-      contents.push(`\n[REFERENCE IMAGES PROVIDED] 
-Analyze the attached reference images deeply. Extract and fuse their core visual DNA into the final prompt. 
-Specifically, pay close attention to the following technical dimensions:
-1. Artistic Style & Medium: (e.g., oil painting, 35mm photography, anime, cinematic 3D render).
-2. Color Palette & Grading: (e.g., hyper-saturated, muted tones, neon cyberpunk, pastel).
-3. Lighting & Shadows: (e.g., volumetric lighting, chiaroscuro, cinematic golden hour, harsh flash).
-4. Textures, Materiality & Mood: (e.g., glossy, gritty, ethereal, intense atmospheric vibe).
-5. Camera, Perspective & Focal Length: (e.g., 50mm lens, f/1.8 bokeh, wide-angle, macro shot, drone view).
-6. Framing & Composition: (e.g., extreme close-up, full body shot, symmetric, rule of thirds, low angle).
-7. Rendering Engine (If CGI/Digital): (e.g., Unreal Engine 5, Octane render, ray tracing, cel-shaded).
-
-Do NOT simply caption the reference images identically; instead, creatively mix their absolute best technical and aesthetic qualities to dramatically elevate the user's requested concept.`);
-    }
-
-    if (resolution) {
-      contents.push(`\n[CRITICAL QUALITY CONSTRAINT]: The user explicitly requested a target resolution of ${resolution}. You MUST integrate "${resolution} quality" into your final prompt and absolutely DO NOT hallucinate or blindly append buzzwords like "8K", "4K", or "16K" unless it exactly matches their choice.`);
-    }
-
+    // === PROMPT EXPANSION ===
     let finalPromptModel = promptModel;
     if (!finalPromptModel) {
       return NextResponse.json({ error: "No prompt model selected" }, { status: 400 });
     }
 
     let enhancedPrompt = requestPrompt;
-    try {
-      const promptEnhanceRes = await ai.models.generateContent({
-        model: finalPromptModel,
-        contents: contents,
-        config: {
-          systemInstruction: systemInstruction,
-          temperature: temperature ?? 0.3,
+    let cacheUsed = false;
+    let cacheExpired = false;
+
+    // --- Path A: Use cached context (reference images already cached) ---
+    if (cacheName) {
+      try {
+        let cachedContents: any[] = [requestPrompt];
+        if (negativePrompt) {
+          cachedContents.push(`\nThe user also specifies a NEGATIVE PROMPT (things absolutely to AVOID in the image): "${negativePrompt}". Ensure your enhanced description actively steers clear of these elements and does not accidentally describe them.`);
         }
-      });
-      enhancedPrompt = promptEnhanceRes.text?.trim() || requestPrompt;
-      console.log("Original:", requestPrompt, "-> Enhanced:", enhancedPrompt, "with model:", finalPromptModel);
-    } catch (enhanceError: any) {
-      console.error("Gemini enhancement failed:", enhanceError);
-      return NextResponse.json(
-        { error: `Prompt Expansion Failed with model ${finalPromptModel}: ${enhanceError.message}` },
-        { status: 500 }
-      );
+        if (resolution) {
+          cachedContents.push(`\n[CRITICAL QUALITY CONSTRAINT]: The user explicitly requested a target resolution of ${resolution}. You MUST integrate "${resolution} quality" into your final prompt and absolutely DO NOT hallucinate or blindly append buzzwords like "8K", "4K", or "16K" unless it exactly matches their choice.`);
+        }
+
+        const promptEnhanceRes = await ai.models.generateContent({
+          model: finalPromptModel,
+          contents: cachedContents,
+          config: {
+            cachedContent: cacheName,
+            temperature: temperature ?? 0.3,
+          }
+        });
+        enhancedPrompt = promptEnhanceRes.text?.trim() || requestPrompt;
+        cacheUsed = true;
+        console.log("✅ Cache hit — prompt expanded using cached reference images");
+        console.log("Original:", requestPrompt, "-> Enhanced:", enhancedPrompt);
+      } catch (cacheError: any) {
+        console.warn("⚠️ Cache miss/expired, falling back to inline:", cacheError.message);
+        cacheExpired = true;
+        // Fall through to Path B
+      }
     }
 
-    // 2. Generate Image using Imagen 3
+    // --- Path B: Inline everything (no cache, or cache failed) ---
+    if (!cacheUsed) {
+      const systemInstruction = clientSystemInstruction || SYSTEM_INSTRUCTION;
+
+      let contents: any[] = [requestPrompt];
+      if (negativePrompt) {
+        contents.push(`\nThe user also specifies a NEGATIVE PROMPT (things absolutely to AVOID in the image): "${negativePrompt}". Ensure your enhanced description actively steers clear of these elements and does not accidentally describe them.`);
+      }
+
+      // If reference images are provided, parse them and pass to Gemini
+      if (referenceImages && Array.isArray(referenceImages) && referenceImages.length > 0) {
+        for (const refImage of referenceImages) {
+          const parsed = parseBase64Image(refImage);
+          if (parsed) {
+            contents.push({ inlineData: parsed });
+          }
+        }
+        contents.push(clientRefAnalysis || REFERENCE_IMAGE_ANALYSIS);
+      }
+
+      if (resolution) {
+        contents.push(`\n[CRITICAL QUALITY CONSTRAINT]: The user explicitly requested a target resolution of ${resolution}. You MUST integrate "${resolution} quality" into your final prompt and absolutely DO NOT hallucinate or blindly append buzzwords like "8K", "4K", or "16K" unless it exactly matches their choice.`);
+      }
+
+      try {
+        const promptEnhanceRes = await ai.models.generateContent({
+          model: finalPromptModel,
+          contents: contents,
+          config: {
+            systemInstruction: systemInstruction,
+            temperature: temperature ?? 0.3,
+          }
+        });
+        enhancedPrompt = promptEnhanceRes.text?.trim() || requestPrompt;
+        console.log("📝 Inline — Original:", requestPrompt, "-> Enhanced:", enhancedPrompt, "with model:", finalPromptModel);
+      } catch (enhanceError: any) {
+        console.error("Gemini enhancement failed:", enhanceError);
+        return NextResponse.json(
+          { error: `Prompt Expansion Failed with model ${finalPromptModel}: ${enhanceError.message}` },
+          { status: 500 }
+        );
+      }
+    }
+
+    // === IMAGE GENERATION ===
     // Map ratio
     let mappedRatio = "1:1";
     if (aspectRatio === "16:9") mappedRatio = "16:9";
@@ -209,7 +225,9 @@ Do NOT simply caption the reference images identically; instead, creatively mix 
 
     return NextResponse.json({
       images: base64Images,
-      enhancedPrompt
+      enhancedPrompt,
+      cacheUsed,
+      cacheExpired
     });
 
   } catch (error: any) {
