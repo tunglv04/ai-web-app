@@ -39,7 +39,7 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
     negativePrompt: "",
     aspectRatio: "1:1",
     resolution: "1K",
-    count: 1,
+    count: 6,
     referenceImages: [],
     promptModel: "gemini-3.1-pro-preview",
     imageModel: "gemini-3-pro-image-preview",
@@ -764,7 +764,7 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
         <div className="space-y-2">
           <span className="text-xs text-white/50 uppercase tracking-widest font-bold">Images to generate</span>
           <div className="grid grid-cols-4 gap-2">
-            {[1, 2, 3, 4].map((num) => (
+            {[1,2, 3, 4,6, 8, 10, 12].map((num) => (
               <button
                 key={num}
                 type="button"
