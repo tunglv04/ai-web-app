@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Upload, X, ImageIcon, Settings2, Trash2, Wand2, FolderPlus, FolderOpen, ChevronDown, RotateCcw, Brain, FileText, Save, Plus, Zap } from "lucide-react";
 import { SYSTEM_INSTRUCTION, REFERENCE_IMAGE_ANALYSIS, BUILT_IN_PRESETS, PromptPreset } from "@/lib/prompts";
 
@@ -55,6 +55,7 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
   const [showRefAnalysis, setShowRefAnalysis] = useState(false);
   const [activePresetId, setActivePresetId] = useState<string>("general");
   const [customPresets, setCustomPresets] = useState<PromptPreset[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -145,37 +146,112 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
   }, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+  const dragCounterRef = useRef(0);
+
+  // Shared helper to process image files from any source (upload, drop, paste)
+  const processFiles = useCallback((files: File[]) => {
+    const imageFiles = files.filter(f => f.type.startsWith("image/"));
+    if (imageFiles.length === 0) return;
+
+    const newImages: string[] = [];
+    let processed = 0;
+
+    imageFiles.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          newImages.push(event.target.result as string);
+        }
+        processed++;
+
+        if (processed === imageFiles.length) {
+          setConfig((prev) => {
+            const remaining = MAX_REFERENCE_IMAGES - prev.referenceImages.length;
+            if (remaining <= 0) return prev;
+
+            // Filter out duplicates by comparing base64 strings
+            const uniqueNewImages = newImages.filter(
+              newImg => !prev.referenceImages.includes(newImg)
+            );
+
+            const imagesToAdd = uniqueNewImages.slice(0, remaining);
+            if (imagesToAdd.length === 0) return prev;
+
+            return { ...prev, referenceImages: [...prev.referenceImages, ...imagesToAdd] };
+          });
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      const remaining = MAX_REFERENCE_IMAGES - config.referenceImages.length;
-      if (remaining <= 0) return;
-
-      // Only process up to the remaining slot count
-      const filesToProcess = Array.from(files).slice(0, remaining);
-      const newImages: string[] = [];
-      let processed = 0;
-
-      filesToProcess.forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            newImages.push(event.target.result as string);
-          }
-          processed++;
-
-          if (processed === filesToProcess.length) {
-            setConfig((prev) => {
-              const updatedImages = [...prev.referenceImages, ...newImages].slice(0, MAX_REFERENCE_IMAGES);
-              return { ...prev, referenceImages: updatedImages };
-            });
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+      processFiles(Array.from(files));
     }
   };
+
+  // --- Drag and Drop handlers ---
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processFiles(Array.from(files));
+    }
+  }, [processFiles]);
+
+  // --- Clipboard paste handler ---
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      const imageFiles: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          const file = items[i].getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+
+      if (imageFiles.length > 0) {
+        e.preventDefault();
+        processFiles(imageFiles);
+      }
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [processFiles]);
 
   const removeImage = (indexToRemove: number) => {
     setConfig((prev) => {
@@ -347,7 +423,28 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
           </div>
         )}
 
-        <div className="flex flex-wrap gap-4">
+        {/* Drop zone with drag-and-drop support */}
+        <div
+          ref={dropZoneRef}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          className={`relative flex flex-wrap gap-4 p-3 rounded-2xl border-2 border-dashed transition-all duration-200 ${
+            isDragging
+              ? "border-accent/70 bg-accent/10 shadow-[inset_0_0_30px_rgba(234,179,8,0.06)]"
+              : "border-transparent"
+          }`}
+        >
+          {/* Drag overlay */}
+          {isDragging && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-accent/5 backdrop-blur-[2px] pointer-events-none">
+              <Upload className="w-8 h-8 text-accent animate-bounce" />
+              <span className="text-sm font-semibold text-accent mt-2">Drop images here</span>
+              <span className="text-xs text-white/40 mt-1">PNG, JPG, WebP supported</span>
+            </div>
+          )}
+
           {config.referenceImages.map((imgSrc, idx) => (
             <div key={idx} className="relative w-24 h-24 rounded-2xl overflow-hidden border border-white/10 group flex-shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -377,6 +474,13 @@ export function ImageGenerationForm({ onGenerate, isLoading }: ImageGenerationFo
             </div>
           )}
         </div>
+
+        {/* Paste hint */}
+        <p className="text-[11px] text-white/30 flex items-center gap-1.5">
+          <span className="px-1.5 py-0.5 rounded bg-white/5 font-mono text-[10px]">⌘V</span>
+          Paste from clipboard or drag &amp; drop images above
+        </p>
+
         <input
           type="file"
           multiple
