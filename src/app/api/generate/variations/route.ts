@@ -3,6 +3,7 @@ import { callGemini } from "@/lib/gemini";
 import { enhancePrompt } from "@/lib/prompt-enhancer";
 import { resizeImage, removeBackground, generateThumbnail } from "@/lib/image-processing";
 import { errorResponse } from "@/lib/api-error";
+import { sendToDiscord } from "@/lib/discord";
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
         settings: sourceAsset.settings,
         createdAt: new Date().toISOString(),
       });
+      sendToDiscord(imageBuffer, sourceAsset.prompt);
     }
 
     return NextResponse.json(results);

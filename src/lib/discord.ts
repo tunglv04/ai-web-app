@@ -8,7 +8,7 @@ export async function sendToDiscord(
   try {
     const formData = new FormData();
 
-    const blob = new Blob([imageBuffer], { type: "image/png" });
+    const blob = new Blob([new Uint8Array(imageBuffer)], { type: "image/png" });
     formData.set("file", blob, "generated.png");
 
     formData.set(
