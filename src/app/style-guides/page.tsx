@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Upload, Sparkles, Loader2, Info, ArrowLeft, ArrowRight } from "lucide-react";
+import { Plus, Upload, Sparkles, Loader2, Info, ArrowLeft, ArrowRight, Clipboard } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { StyleGuide, STYLE_PRESETS } from "@/lib/types";
 import { StyleGuideCard } from "@/components/style-guide-card";
@@ -75,6 +75,28 @@ export default function StyleGuidesPage() {
     onDrop,
     accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp"] },
   });
+
+  // Paste support when form is open
+  useEffect(() => {
+    if (!isFormOpen) return;
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          const file = items[i].getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      if (files.length > 0) {
+        e.preventDefault();
+        onDrop(files);
+      }
+    };
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [isFormOpen, onDrop]);
 
   const handleAnalyzeStyle = async () => {
     if (uploadedImages.length === 0) return;
@@ -187,7 +209,11 @@ export default function StyleGuidesPage() {
           <div {...getRootProps()} className="border-2 border-dashed border-[var(--border)] rounded-lg p-4 mb-2 cursor-pointer hover:border-[var(--muted)] text-center">
             <input {...getInputProps()} />
             <Upload size={20} className="mx-auto mb-1 text-[var(--muted)]" />
-            <p className="text-xs text-[var(--muted)]">Drop reference images here</p>
+            <p className="text-xs text-[var(--muted)]">Drop or paste reference images</p>
+            <div className="flex items-center justify-center gap-1 mt-1">
+              <Clipboard size={10} className="text-[var(--muted)]" />
+              <p className="text-[10px] text-[var(--muted)]">Ctrl+V to paste from clipboard</p>
+            </div>
           </div>
 
           <div className="flex items-start gap-2 mb-3 px-1 py-2 rounded-md bg-[var(--sidebar-bg)]">

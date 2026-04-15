@@ -9,6 +9,7 @@ import { PromptEditor } from "@/components/prompt-editor";
 import { GenerationSettings } from "@/components/generation-settings";
 import { AssetGrid } from "@/components/asset-grid";
 import { AssetDetailModal } from "@/components/asset-detail-modal";
+import { StyleGuideInlineEditor } from "@/components/style-guide-inline-editor";
 import { GeneratedAsset } from "@/lib/types";
 import { clearApiKey } from "@/lib/client-storage";
 import { ApiErrorCode } from "@/lib/api-error";
@@ -44,6 +45,7 @@ export default function GeneratePage() {
     setIsGenerating,
     removeAsset,
     updateAsset,
+    updateStyleGuide,
   } = useAppStore();
 
   useEffect(() => {
@@ -311,8 +313,19 @@ export default function GeneratePage() {
     setSelectedAsset(null);
   };
 
+  const selectedGuide = selectedStyleGuideId
+    ? styleGuides.find((g) => g.id === selectedStyleGuideId) || null
+    : null;
+
   return (
-    <div>
+    <>
+      {selectedGuide && (
+        <StyleGuideInlineEditor
+          guide={selectedGuide}
+          onSave={updateStyleGuide}
+        />
+      )}
+    <div className={`transition-all duration-200 ${selectedGuide ? "mr-72" : ""}`}>
       <div className="mb-6 border-b border-[var(--border)] pb-6">
         <div className="flex gap-4 items-start">
           <div className="flex flex-col gap-3 flex-shrink-0">
@@ -471,5 +484,6 @@ export default function GeneratePage() {
         />
       )}
     </div>
+    </>
   );
 }
