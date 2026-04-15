@@ -1,0 +1,106 @@
+[
+  {
+    "id": "guide-1775976637853-crig31",
+    "name": "idle Lotl Characters",
+    "referenceImages": [
+      "/references/ref-1775976593428.png",
+      "/references/ref-1775976593434.png",
+      "/references/ref-1775976593439.png",
+      "/references/ref-1775976593445.png",
+      "/references/ref-1775976593450.png",
+      "/references/ref-1775976593454.png",
+      "/references/ref-1775976593459.png",
+      "/references/ref-1775976593464.png",
+      "/references/ref-1775976593468.png",
+      "/references/ref-1775976593474.png",
+      "/references/ref-1775976593479.png",
+      "/references/ref-1775976593483.png",
+      "/references/ref-1775976593488.png",
+      "/references/ref-1775976593492.png",
+      "/references/ref-1775976593497.png",
+      "/references/ref-1775976593501.png",
+      "/references/ref-1775976593505.png",
+      "/references/ref-1775976593509.png",
+      "/references/ref-1775976593514.png",
+      "/references/ref-1775976593518.png",
+      "/references/ref-1775976593524.png",
+      "/references/ref-1775976593529.png",
+      "/references/ref-1775976593533.png",
+      "/references/ref-1775976593538.png",
+      "/references/ref-1775976593542.png",
+      "/references/ref-1775976593546.png",
+      "/references/ref-1775976593551.png",
+      "/references/ref-1775976593556.png",
+      "/references/ref-1775976593560.png",
+      "/references/ref-1775976593565.png",
+      "/references/ref-1775976593569.png",
+      "/references/ref-1775976593573.png",
+      "/references/ref-1775976593578.png",
+      "/references/ref-1775976593583.png",
+      "/references/ref-1775976593587.png",
+      "/references/ref-1775976593591.png",
+      "/references/ref-1775976593597.png",
+      "/references/ref-1775976593601.png",
+      "/references/ref-1775976593606.png",
+      "/references/ref-1775976593610.png",
+      "/references/ref-1775976593615.png",
+      "/references/ref-1775976593619.png",
+      "/references/ref-1775976593623.png",
+      "/references/ref-1775976593628.png"
+    ],
+    "defaultPromptPrefix": "3D mobile game asset, chibi style, no-outline, low-poly, painted texture, vibrant color palette, simple cell-shading.",
+    "defaultSettings": {
+      "style": "flat-vector"
+    },
+    "createdAt": "2026-04-12T06:50:37.853Z",
+    "negativePrompt": "leg",
+    "systemInstruction": "Create 3D game assets in a cute, chibi style for a mobile game. The art should be low-poly with a hand-painted texture look and no black outlines. Characters must have large heads and small, simplified bodies. Limbs, especially hands, should be small, floating, and unattached to the torso. Use a vibrant, clean color palette with simple, sharp cell-shading to define forms. Avoid complex gradients or realistic textures. Focus on clear, iconic shapes and features, keeping the overall level of detail low."
+  },
+  {
+    "id": "guide-1775983894627-8yqep3",
+    "name": "Minimal Characters",
+    "referenceImages": [
+      "/references/ref-1775983876394.png",
+      "/references/ref-1775983876401.png",
+      "/references/ref-1775983876408.png",
+      "/references/ref-1775983876415.png",
+      "/references/ref-1775983876421.png",
+      "/references/ref-1775983876429.png",
+      "/references/ref-1775983876437.png",
+      "/references/ref-1775983876442.png",
+      "/references/ref-1775983876448.png",
+      "/references/ref-1775983876455.png"
+    ],
+    "defaultPromptPrefix": "Chibi mobile game art, thick black outlines, flat colors, minimal cel-shading, cute vector illustration style.",
+    "defaultSettings": {
+      "style": "flat-vector"
+    },
+    "createdAt": "2026-04-12T08:51:34.627Z",
+    "systemInstruction": "Create game assets in a chibi, mobile game art style. Characters and objects must have thick, bold black outlines with thinner internal black lines. Use a limited palette of flat, saturated colors. Apply minimal, hard-edged cel-shading to create depth, with consistent light sources. Characters are cute and simplified with large heads and small, stubby bodies. The final look should be clean, vector-based, and iconic, suitable for UI icons or in-game sprites.",
+    "negativePrompt": "arm, leg, highlight, flashy"
+  },
+  {
+    "id": "guide-1776228304959-j9mxpy",
+    "name": "Splash art axolotl",
+    "referenceImages": [
+      "/references/ref-1776228038326.png",
+      "/references/ref-1776228038332.png",
+      "/references/ref-1776228038338.png",
+      "/references/ref-1776228038342.png",
+      "/references/ref-1776228038348.png",
+      "/references/ref-1776228038353.png",
+      "/references/ref-1776228038358.png",
+      "/references/ref-1776228061780.png",
+      "/references/ref-1776228177519.png",
+      "/references/ref-1776228193084.png",
+      "/references/ref-1776228268731.png"
+    ],
+    "defaultPromptPrefix": "Cute chibi mobile game art style, no outlines, flat colors with simple cel-shading, blocky geometric shapes, low-poly aesthetic.",
+    "negativePrompt": "",
+    "systemInstruction": "You are an AI art generator tasks with creating assets for a mobile game. The style is a cute, cartoony, chibi aesthetic, often used in top-down or isometric perspectives. Do not use any outlines; all forms are defined by solid colors and simple, clean cel-shading or soft gradients. Characters must have large heads and small bodies. Environments and objects should be composed of blocky, geometric shapes with rounded edges, resembling a low-poly 3D style rendered in 2D. Use a bright, playful, and friendly color palette with minimal texturing. Ensure all generated images maintain this clean, shape-based, outline-free look.",
+    "defaultSettings": {
+      "style": "hand-drawn"
+    },
+    "createdAt": "2026-04-15T04:45:04.959Z"
+  }
+]
