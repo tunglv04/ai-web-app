@@ -86,6 +86,82 @@ export function clearApiKey(): void {
   localStorage.removeItem(API_KEY_KEY);
 }
 
+// Export / Import helpers
+
+export async function exportAllData(): Promise<Blob> {
+  // Collect localStorage data (exclude API key)
+  const localData: Record<string, string> = {};
+  for (const key of ["settings", "styleguides", "spritesheets"]) {
+    const val = localStorage.getItem(key);
+    if (val) localData[key] = val;
+  }
+
+  // Collect all blobs from IndexedDB first, then convert to data URLs
+  const db = await openDB();
+  const blobs: { key: string; blob: Blob }[] = [];
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const store = tx.objectStore(STORE_NAME);
+    const cursor = store.openCursor();
+    cursor.onsuccess = () => {
+      const c = cursor.result;
+      if (c) {
+        const k = c.key as string;
+        // Skip generated output images and thumbnails
+        if (!k.startsWith("outputs/")) {
+          blobs.push({ key: k, blob: c.value as Blob });
+        }
+        c.continue();
+      } else {
+        resolve();
+      }
+    };
+    cursor.onerror = () => reject(cursor.error);
+  });
+
+  // Convert blobs to data URLs outside the transaction
+  const images: Record<string, string> = {};
+  for (const { key, blob } of blobs) {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+    images[key] = dataUrl;
+  }
+
+  const bundle = { version: 1, localData, images };
+  return new Blob([JSON.stringify(bundle)], { type: "application/json" });
+}
+
+export async function importAllData(file: File): Promise<void> {
+  const text = await file.text();
+  const bundle = JSON.parse(text) as {
+    version: number;
+    localData: Record<string, string>;
+    images: Record<string, string>;
+  };
+
+  // Restore localStorage
+  for (const [key, val] of Object.entries(bundle.localData)) {
+    localStorage.setItem(key, val);
+  }
+
+  // Restore images to IndexedDB
+  const db = await openDB();
+  for (const [key, dataUrl] of Object.entries(bundle.images)) {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      tx.objectStore(STORE_NAME).put(blob, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+}
+
 // Base64 / Blob conversion helpers
 
 export function base64ToBlob(base64: string, mimeType = "image/png"): Blob {

@@ -77,7 +77,7 @@ export const DEFAULT_SETTINGS: GenerationSettings = {
   width: 512,
   height: 512,
   transparent: true,
-  style: "pixel-art",
+  style: "hand-drawn",
   model: "gemini-3.1-flash",
   autoEnhance: true,
   temperature: 0.5,
