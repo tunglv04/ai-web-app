@@ -5,6 +5,7 @@ import { useDropzone } from "react-dropzone";
 import { Upload, X, ArrowUp, ArrowDown, Sparkles, Loader2, Check, RotateCcw } from "lucide-react";
 import { StyleGuide, STYLE_PRESETS } from "@/lib/types";
 import { saveImage, getImageUrl, deleteImage, blobToBase64 } from "@/lib/client-storage";
+import { resizeIfNeeded } from "@/lib/resize-client";
 import { getApiKeyHeader } from "@/store/app-store";
 
 interface StyleGuideInlineEditorProps {
@@ -57,7 +58,8 @@ export function StyleGuideInlineEditor({ guide, onSave }: StyleGuideInlineEditor
   const onDrop = useCallback(async (files: File[]) => {
     const newUrls: string[] = [];
     const newKeys: string[] = [];
-    for (const file of files) {
+    for (const f of files) {
+      const file = await resizeIfNeeded(f);
       const key = `references/ref-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
       const blob = new Blob([await file.arrayBuffer()], { type: file.type });
       await saveImage(key, blob);

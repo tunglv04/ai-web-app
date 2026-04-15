@@ -7,6 +7,7 @@ import { StyleGuide, STYLE_PRESETS } from "@/lib/types";
 import { StyleGuideCard } from "@/components/style-guide-card";
 import { useAppStore, getApiKeyHeader } from "@/store/app-store";
 import { saveImage, getImageUrl, deleteImage, blobToBase64 } from "@/lib/client-storage";
+import { resizeIfNeeded } from "@/lib/resize-client";
 
 export default function StyleGuidesPage() {
   const { styleGuides, init, addStyleGuide, updateStyleGuide, removeStyleGuide } = useAppStore();
@@ -61,7 +62,8 @@ export default function StyleGuidesPage() {
 
   const onDrop = useCallback(async (files: File[]) => {
     const newImages: { key: string; url: string }[] = [];
-    for (const file of files) {
+    for (const f of files) {
+      const file = await resizeIfNeeded(f);
       const key = `references/ref-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
       const blob = new Blob([await file.arrayBuffer()], { type: file.type });
       await saveImage(key, blob);

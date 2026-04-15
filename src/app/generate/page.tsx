@@ -12,6 +12,7 @@ import { AssetDetailModal } from "@/components/asset-detail-modal";
 import { StyleGuideInlineEditor } from "@/components/style-guide-inline-editor";
 import { GeneratedAsset } from "@/lib/types";
 import { clearApiKey } from "@/lib/client-storage";
+import { resizeIfNeeded } from "@/lib/resize-client";
 import { ApiErrorCode } from "@/lib/api-error";
 
 const ENHANCE_MODELS = [
@@ -52,9 +53,10 @@ export default function GeneratePage() {
     init();
   }, [init]);
 
-  const handleUpload = (file: File) => {
-    setReferenceFile(file);
-    setReferencePreview(URL.createObjectURL(file));
+  const handleUpload = async (file: File) => {
+    const resized = await resizeIfNeeded(file);
+    setReferenceFile(resized);
+    setReferencePreview(URL.createObjectURL(resized));
   };
 
   const handleClearReference = () => {
@@ -64,13 +66,18 @@ export default function GeneratePage() {
     setEditInstructions("");
   };
 
-  const handleAddElements = (files: File[]) => {
-    const newRefs = files.map((file) => ({
-      id: `elem-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      file,
-      preview: URL.createObjectURL(file),
-      label: "",
-    }));
+  const handleAddElements = async (files: File[]) => {
+    const newRefs = await Promise.all(
+      files.map(async (file) => {
+        const resized = await resizeIfNeeded(file);
+        return {
+          id: `elem-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          file: resized,
+          preview: URL.createObjectURL(resized),
+          label: "",
+        };
+      })
+    );
     setElementRefs((prev) => [...prev, ...newRefs]);
   };
 
